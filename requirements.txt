@@ -6,3 +6,6 @@ openpyxl
 requests
 email-validator
 pdfplumber
+scikit-learn
+numpy
+scipy
