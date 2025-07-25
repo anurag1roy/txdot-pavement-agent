@@ -1,0 +1,14 @@
+# Sensitive files - NEVER upload these!
+sage-passkey-465821-v5-5930e6f96f63.json
+config.py
+*.key
+.env
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Other
+.DS_Store
+Thumbs.db

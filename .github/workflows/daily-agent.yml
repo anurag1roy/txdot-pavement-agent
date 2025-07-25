@@ -1,0 +1,40 @@
+name: 🛣️ TxDOT Pavement ProjectSeeker
+
+on:
+  schedule:
+    - cron: '0 13 * * *'  # 8 AM CST = 1 PM UTC
+  workflow_dispatch:      # Allows manual testing
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 🔑 Create service account file
+      run: |
+        echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > sage-passkey-465821-v5-5930e6f96f63.json
+        
+    - name: 🚀 Run TxDOT Pavement ProjectSeeker
+      env:
+        EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        TO_EMAILS: ${{ secrets.TO_EMAILS }}
+        SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        SERVICE_ACCOUNT_FILE: sage-passkey-465821-v5-5930e6f96f63.json
+      run: python agent.py
+      
+    - name: 🧹 Cleanup secrets
+      run: rm -f sage-passkey-465821-v5-5930e6f96f63.json
