@@ -1,4 +1,4 @@
-import os
+import os  # ← Make sure this is here!
 import pandas as pd
 import gspread
 import logging
@@ -37,9 +37,9 @@ SHEET_HEADERS = [
 
 def get_gsheet():
     try:
-        print("Looking for credentials at:", SERVICE_ACCOUNT_FILENAME)  # ← Fixed this line
+        print("Looking for credentials at:", SERVICE_ACCOUNT_FILENAME)  # ← Fixed: was SERVICE_ACCOUNT_FILE
         scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-        creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILENAME, scopes=scopes)  # ← And this line
+        creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILENAME, scopes=scopes)  # ← This line should be correct
         print("Service account email:", creds.service_account_email)
         gc = gspread.authorize(creds)
         print("gspread authorized.")

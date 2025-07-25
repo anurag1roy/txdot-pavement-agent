@@ -9,8 +9,8 @@ from google.oauth2.service_account import Credentials
 from gspread_dataframe import get_as_dataframe
 
 # Google Sheets config
-SERVICE_ACCOUNT_FILENAME = "sage-passkey-465821-v5-5930e6f96f63.json"
-SPREADSHEET_ID = "18p3c-CbVHO7lc50V7fhnrqVUqgr2clkuyG8Y1oNhLbA"
+SERVICE_ACCOUNT_FILENAME = os.getenv("SERVICE_ACCOUNT_FILE", "sage-passkey-465821-v5-5930e6f96f63.json")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "18p3c-CbVHO7lc50V7fhnrqVUqgr2clkuyG8Y1oNhLbA")
 WEBSITES_SHEET_NAME = "websites"
 WEBSITES_CACHE_FILE = "websites_cache.csv"
 
@@ -64,19 +64,36 @@ def extract_projects():
     ]
     pdf_urls = get_pdf_urls_from_sheet()
     logging.info(f"📄 Processing {len(pdf_urls)} PDF URLs from sheet.")
+    
     all_tables = []
+    website_status = []  # 🆕 Add this line
     
     for url in pdf_urls:
-        website_name = url.split("/")[-1]  # Get filename for logging
+        website_name = url.split("/")[-1]
         projects_from_this_url = 0
+        
+        # 🆕 Add status tracking
+        status_info = {
+            "url": url,
+            "name": website_name,
+            "status": "unknown",
+            "error": None,
+            "projects_extracted": 0
+        }
         
         try:
             logging.info(f"🌐 Opening website: {website_name}")
             response = requests.get(url, timeout=30)
             response.raise_for_status()
             logging.info(f"✅ Website opened successfully: {website_name}")
+            status_info["status"] = "success"  # 🆕 Mark as success
+            
         except Exception as e:
-            logging.error(f"❌ Failed to open website {website_name}: {e}")
+            error_msg = f"HTTP error: {e}"
+            logging.error(f"❌ Failed to open website {website_name}: {error_msg}")
+            status_info["status"] = "error"  # 🆕 Mark as error
+            status_info["error"] = error_msg
+            website_status.append(status_info)  # 🆕 Add to status list
             continue
             
         try:
@@ -87,14 +104,12 @@ def extract_projects():
                         tables = page.extract_tables()
                         for table_num, table in enumerate(tables, 1):
                             if table and len(table) > 1:
-                                # Try to find the header row dynamically
                                 header_row = table[0]
                                 if header_row != headers:
                                     logging.warning(
                                         f"Header mismatch on {website_name} page {page_num} table {table_num}. "
                                         f"Expected: {headers}, Found: {header_row}"
                                     )
-                                # Only keep rows with correct number of columns
                                 data_rows = [row for row in table[1:] if len(row) == len(headers)]
                                 data_rows = [row for row in data_rows if any(cell and str(cell).strip() for cell in row)]
                                 if data_rows:
@@ -106,21 +121,36 @@ def extract_projects():
                     except Exception as e:
                         logging.error(f"Error extracting table from {website_name} page {page_num}: {e}")
             
+            status_info["projects_extracted"] = projects_from_this_url
             logging.info(f"📊 Extracted {projects_from_this_url} projects from {website_name}")
             
         except Exception as e:
-            logging.error(f"❌ Error processing PDF from {website_name}: {e}")
+            error_msg = f"PDF processing error: {str(e)}"
+            logging.error(f"❌ Error processing PDF from {website_name}: {error_msg}")
+            status_info["status"] = "error"
+            status_info["error"] = error_msg
+        
+        website_status.append(status_info)  # 🆕 Add status for this website
     
+    # 🆕 Create final result with website status
     if all_tables:
         try:
             final_df = pd.concat(all_tables, ignore_index=True)
             final_df = final_df.drop_duplicates()
             final_df = final_df.dropna(how="all")
             logging.info(f"📊 TOTAL EXTRACTED: {len(final_df)} projects from all PDFs before comparison.")
-            return final_df
         except Exception as e:
             logging.error(f"Error concatenating DataFrames: {e}")
-            return pd.DataFrame()
+            final_df = pd.DataFrame()
     else:
         logging.warning("⚠️ No valid tables found in any of the PDFs.")
-        return pd.DataFrame()
+        final_df = pd.DataFrame()
+    
+    # 🆕 At the very end, before returning:
+    if hasattr(final_df, 'attrs'):
+        final_df.attrs['website_status'] = website_status
+    else:
+        # Fallback: store as a separate variable and pass it along
+        setattr(final_df, '_website_status', website_status)
+    
+    return final_df
